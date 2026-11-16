@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"log"
 	"net"
@@ -15,17 +16,43 @@ import (
 	"github.com/www-lexa-pro/ai-for-developers-project-386/backend/internal/api"
 )
 
-type server struct{}
+type server struct{ meetingTypes []api.MeetingType }
+
+func newServer() *server {
+	return &server{meetingTypes: []api.MeetingType{
+		{Id: rand.Text(), Name: "Знакомство", Description: "Познакомимся и обсудим ваш вопрос.", DurationMinutes: 15},
+		{Id: rand.Text(), Name: "Консультация", Description: "Разберём задачу и наметим следующие шаги.", DurationMinutes: 30},
+		{Id: rand.Text(), Name: "Подробный разбор", Description: "Погрузимся в детали и составим план действий.", DurationMinutes: 60},
+	}}
+}
+
+func (s *server) ListMeetingTypes(context.Context, api.ListMeetingTypesRequestObject) (api.ListMeetingTypesResponseObject, error) {
+	return api.ListMeetingTypes200JSONResponse(s.meetingTypes), nil
+}
+
+func (s *server) GetMeetingType(_ context.Context, request api.GetMeetingTypeRequestObject) (api.GetMeetingTypeResponseObject, error) {
+	for _, meetingType := range s.meetingTypes {
+		if meetingType.Id == request.Id {
+			return api.GetMeetingType200JSONResponse(meetingType), nil
+		}
+	}
+	return api.GetMeetingType404JSONResponse{Code: api.MeetingTypeNotFoundCodeMeetingTypeNotFound, Message: "Этот тип встречи больше недоступен"}, nil
+}
 
 func (server) GetHealth(context.Context, api.GetHealthRequestObject) (api.GetHealthResponseObject, error) {
 	return api.GetHealth200JSONResponse{Status: api.Ok}, nil
 }
 
-func main() {
-	gin.SetMode(gin.ReleaseMode)
+func newRouter() *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
-	api.RegisterHandlers(router, api.NewStrictHandler(server{}, nil))
+	api.RegisterHandlers(router, api.NewStrictHandler(newServer(), nil))
+	return router
+}
+
+func main() {
+	gin.SetMode(gin.ReleaseMode)
+	router := newRouter()
 	address := os.Getenv("APP_ADDR")
 	if address == "" {
 		address = "127.0.0.1:8080"

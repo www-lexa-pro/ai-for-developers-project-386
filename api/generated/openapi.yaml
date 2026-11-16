@@ -15,6 +15,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Health'
+  /api/meeting-types:
+    get:
+      operationId: listMeetingTypes
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MeetingType'
+  /api/meeting-types/{id}:
+    get:
+      operationId: getMeetingType
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingType'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingTypeNotFound'
 components:
   schemas:
     Health:
@@ -26,3 +61,32 @@ components:
           type: string
           enum:
             - ok
+    MeetingType:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - durationMinutes
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+    MeetingTypeNotFound:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          enum:
+            - meeting_type_not_found
+        message:
+          type: string

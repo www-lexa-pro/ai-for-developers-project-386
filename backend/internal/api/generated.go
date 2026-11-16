@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/oapi-codegen/runtime"
 )
 
 // Defines values for HealthStatus.
@@ -28,6 +29,21 @@ func (e HealthStatus) Valid() bool {
 	}
 }
 
+// Defines values for MeetingTypeNotFoundCode.
+const (
+	MeetingTypeNotFoundCodeMeetingTypeNotFound MeetingTypeNotFoundCode = "meeting_type_not_found"
+)
+
+// Valid indicates whether the value is a known member of the MeetingTypeNotFoundCode enum.
+func (e MeetingTypeNotFoundCode) Valid() bool {
+	switch e {
+	case MeetingTypeNotFoundCodeMeetingTypeNotFound:
+		return true
+	default:
+		return false
+	}
+}
+
 // Health defines model for Health.
 type Health struct {
 	Status HealthStatus `json:"status"`
@@ -36,11 +52,34 @@ type Health struct {
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
 
+// MeetingType defines model for MeetingType.
+type MeetingType struct {
+	Description     string `json:"description"`
+	DurationMinutes int32  `json:"durationMinutes"`
+	Id              string `json:"id"`
+	Name            string `json:"name"`
+}
+
+// MeetingTypeNotFound defines model for MeetingTypeNotFound.
+type MeetingTypeNotFound struct {
+	Code    MeetingTypeNotFoundCode `json:"code"`
+	Message string                  `json:"message"`
+}
+
+// MeetingTypeNotFoundCode defines model for MeetingTypeNotFound.Code.
+type MeetingTypeNotFoundCode string
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
 	// (GET /api/health)
 	GetHealth(c *gin.Context)
+
+	// (GET /api/meeting-types)
+	ListMeetingTypes(c *gin.Context)
+
+	// (GET /api/meeting-types/{id})
+	GetMeetingType(c *gin.Context, id string)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -63,6 +102,44 @@ func (siw *ServerInterfaceWrapper) GetHealth(c *gin.Context) {
 	}
 
 	siw.Handler.GetHealth(c)
+}
+
+// ListMeetingTypes operation middleware
+func (siw *ServerInterfaceWrapper) ListMeetingTypes(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListMeetingTypes(c)
+}
+
+// GetMeetingType operation middleware
+func (siw *ServerInterfaceWrapper) GetMeetingType(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetMeetingType(c, id)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -93,6 +170,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.GET(options.BaseURL+"/api/health", wrapper.GetHealth)
+	router.GET(options.BaseURL+"/api/meeting-types", wrapper.ListMeetingTypes)
+	router.GET(options.BaseURL+"/api/meeting-types/:id", wrapper.GetMeetingType)
 }
 
 type GetHealthRequestObject struct {
@@ -116,11 +195,74 @@ func (response GetHealth200JSONResponse) VisitGetHealthResponse(w http.ResponseW
 	return err
 }
 
+type ListMeetingTypesRequestObject struct {
+}
+
+type ListMeetingTypesResponseObject interface {
+	VisitListMeetingTypesResponse(w http.ResponseWriter) error
+}
+
+type ListMeetingTypes200JSONResponse []MeetingType
+
+func (response ListMeetingTypes200JSONResponse) VisitListMeetingTypesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMeetingTypeRequestObject struct {
+	Id string `json:"id"`
+}
+
+type GetMeetingTypeResponseObject interface {
+	VisitGetMeetingTypeResponse(w http.ResponseWriter) error
+}
+
+type GetMeetingType200JSONResponse MeetingType
+
+func (response GetMeetingType200JSONResponse) VisitGetMeetingTypeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMeetingType404JSONResponse MeetingTypeNotFound
+
+func (response GetMeetingType404JSONResponse) VisitGetMeetingTypeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 
 	// (GET /api/health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
+
+	// (GET /api/meeting-types)
+	ListMeetingTypes(ctx context.Context, request ListMeetingTypesRequestObject) (ListMeetingTypesResponseObject, error)
+
+	// (GET /api/meeting-types/{id})
+	GetMeetingType(ctx context.Context, request GetMeetingTypeRequestObject) (GetMeetingTypeResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx *gin.Context, request any) (any, error)
@@ -197,6 +339,56 @@ func (sh *strictHandler) GetHealth(ctx *gin.Context) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(GetHealthResponseObject); ok {
 		if err := validResponse.VisitGetHealthResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMeetingTypes operation middleware
+func (sh *strictHandler) ListMeetingTypes(ctx *gin.Context) {
+	var request ListMeetingTypesRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMeetingTypes(ctx, request.(ListMeetingTypesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMeetingTypes")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListMeetingTypesResponseObject); ok {
+		if err := validResponse.VisitListMeetingTypesResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMeetingType operation middleware
+func (sh *strictHandler) GetMeetingType(ctx *gin.Context, id string) {
+	var request GetMeetingTypeRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMeetingType(ctx, request.(GetMeetingTypeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMeetingType")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(GetMeetingTypeResponseObject); ok {
+		if err := validResponse.VisitGetMeetingTypeResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {
