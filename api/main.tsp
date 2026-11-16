@@ -39,3 +39,29 @@ op getMeetingType(@path id: string): MeetingType | {
   @statusCode statusCode: 404;
   @body body: MeetingTypeNotFound;
 };
+
+model AvailableSlot {
+  start: utcDateTime;
+  end: utcDateTime;
+}
+
+model AvailabilityDay {
+  date: plainDate;
+  unavailableReason?: "weekend" | "fully_booked";
+  slots: AvailableSlot[];
+}
+
+model Availability {
+  timeZone: "Europe/Moscow";
+  windowStart: plainDate;
+  windowEnd: plainDate;
+  days: AvailabilityDay[];
+}
+
+@route("/api/meeting-types/{id}/availability")
+@get
+@operationId("getAvailability")
+op getAvailability(@path id: string): Availability | {
+  @statusCode statusCode: 404;
+  @body body: MeetingTypeNotFound;
+};

@@ -9,10 +9,45 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for AvailabilityTimeZone.
+const (
+	EuropeMoscow AvailabilityTimeZone = "Europe/Moscow"
+)
+
+// Valid indicates whether the value is a known member of the AvailabilityTimeZone enum.
+func (e AvailabilityTimeZone) Valid() bool {
+	switch e {
+	case EuropeMoscow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AvailabilityDayUnavailableReason.
+const (
+	FullyBooked AvailabilityDayUnavailableReason = "fully_booked"
+	Weekend     AvailabilityDayUnavailableReason = "weekend"
+)
+
+// Valid indicates whether the value is a known member of the AvailabilityDayUnavailableReason enum.
+func (e AvailabilityDayUnavailableReason) Valid() bool {
+	switch e {
+	case FullyBooked:
+		return true
+	case Weekend:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for HealthStatus.
 const (
@@ -42,6 +77,33 @@ func (e MeetingTypeNotFoundCode) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// Availability defines model for Availability.
+type Availability struct {
+	Days        []AvailabilityDay    `json:"days"`
+	TimeZone    AvailabilityTimeZone `json:"timeZone"`
+	WindowEnd   openapi_types.Date   `json:"windowEnd"`
+	WindowStart openapi_types.Date   `json:"windowStart"`
+}
+
+// AvailabilityTimeZone defines model for Availability.TimeZone.
+type AvailabilityTimeZone string
+
+// AvailabilityDay defines model for AvailabilityDay.
+type AvailabilityDay struct {
+	Date              openapi_types.Date                `json:"date"`
+	Slots             []AvailableSlot                   `json:"slots"`
+	UnavailableReason *AvailabilityDayUnavailableReason `json:"unavailableReason,omitempty"`
+}
+
+// AvailabilityDayUnavailableReason defines model for AvailabilityDay.UnavailableReason.
+type AvailabilityDayUnavailableReason string
+
+// AvailableSlot defines model for AvailableSlot.
+type AvailableSlot struct {
+	End   time.Time `json:"end"`
+	Start time.Time `json:"start"`
 }
 
 // Health defines model for Health.
@@ -80,6 +142,9 @@ type ServerInterface interface {
 
 	// (GET /api/meeting-types/{id})
 	GetMeetingType(c *gin.Context, id string)
+
+	// (GET /api/meeting-types/{id}/availability)
+	GetAvailability(c *gin.Context, id string)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -142,6 +207,31 @@ func (siw *ServerInterfaceWrapper) GetMeetingType(c *gin.Context) {
 	siw.Handler.GetMeetingType(c, id)
 }
 
+// GetAvailability operation middleware
+func (siw *ServerInterfaceWrapper) GetAvailability(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetAvailability(c, id)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -172,6 +262,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/health", wrapper.GetHealth)
 	router.GET(options.BaseURL+"/api/meeting-types", wrapper.ListMeetingTypes)
 	router.GET(options.BaseURL+"/api/meeting-types/:id", wrapper.GetMeetingType)
+	router.GET(options.BaseURL+"/api/meeting-types/:id/availability", wrapper.GetAvailability)
 }
 
 type GetHealthRequestObject struct {
@@ -252,6 +343,42 @@ func (response GetMeetingType404JSONResponse) VisitGetMeetingTypeResponse(w http
 	return err
 }
 
+type GetAvailabilityRequestObject struct {
+	Id string `json:"id"`
+}
+
+type GetAvailabilityResponseObject interface {
+	VisitGetAvailabilityResponse(w http.ResponseWriter) error
+}
+
+type GetAvailability200JSONResponse Availability
+
+func (response GetAvailability200JSONResponse) VisitGetAvailabilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAvailability404JSONResponse MeetingTypeNotFound
+
+func (response GetAvailability404JSONResponse) VisitGetAvailabilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 
@@ -263,6 +390,9 @@ type StrictServerInterface interface {
 
 	// (GET /api/meeting-types/{id})
 	GetMeetingType(ctx context.Context, request GetMeetingTypeRequestObject) (GetMeetingTypeResponseObject, error)
+
+	// (GET /api/meeting-types/{id}/availability)
+	GetAvailability(ctx context.Context, request GetAvailabilityRequestObject) (GetAvailabilityResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx *gin.Context, request any) (any, error)
@@ -389,6 +519,32 @@ func (sh *strictHandler) GetMeetingType(ctx *gin.Context, id string) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(GetMeetingTypeResponseObject); ok {
 		if err := validResponse.VisitGetMeetingTypeResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAvailability operation middleware
+func (sh *strictHandler) GetAvailability(ctx *gin.Context, id string) {
+	var request GetAvailabilityRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAvailability(ctx, request.(GetAvailabilityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAvailability")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(GetAvailabilityResponseObject); ok {
+		if err := validResponse.VisitGetAvailabilityResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {

@@ -5,6 +5,7 @@ import type { MouseEvent } from "react";
 import { getMeetingType, listMeetingTypes } from "./api/sdk.gen";
 import type { MeetingType } from "./api/types.gen";
 import "./styles.css";
+import { BookingPage } from "./BookingPage";
 
 type Screen =
   | { status: "loading" }
@@ -152,6 +153,9 @@ export function App() {
                 ))}
               </div>
             )}
+            {id && screen.status === "ready" && (
+              <BookingPage meetingTypeId={decodeURIComponent(id)} />
+            )}
             {id && (
               <Button component="a" href="/" onClick={(event) => navigate(event, "/")} mt="md">
                 Вернуться к типам встреч
@@ -165,7 +169,7 @@ export function App() {
             <div>
               <Text fw={600}>Ваш вопрос. Подходящий формат. Удобное время.</Text>
               <Text size="sm" c="dimmed">
-                Выбор времени и запись появятся на следующем этапе.
+                Выберите свободное время по московскому календарю.
               </Text>
             </div>
           </aside>

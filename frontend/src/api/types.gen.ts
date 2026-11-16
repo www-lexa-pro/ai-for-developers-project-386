@@ -4,6 +4,24 @@ export type ClientOptions = {
     baseUrl: `${string}://api` | (string & {});
 };
 
+export type Availability = {
+    timeZone: 'Europe/Moscow';
+    windowStart: string;
+    windowEnd: string;
+    days: Array<AvailabilityDay>;
+};
+
+export type AvailabilityDay = {
+    date: string;
+    unavailableReason?: 'weekend' | 'fully_booked';
+    slots: Array<AvailableSlot>;
+};
+
+export type AvailableSlot = {
+    start: string;
+    end: string;
+};
+
 export type Health = {
     status: 'ok';
 };
@@ -78,3 +96,30 @@ export type GetMeetingTypeResponses = {
 };
 
 export type GetMeetingTypeResponse = GetMeetingTypeResponses[keyof GetMeetingTypeResponses];
+
+export type GetAvailabilityData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/meeting-types/{id}/availability';
+};
+
+export type GetAvailabilityErrors = {
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: MeetingTypeNotFound;
+};
+
+export type GetAvailabilityError = GetAvailabilityErrors[keyof GetAvailabilityErrors];
+
+export type GetAvailabilityResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: Availability;
+};
+
+export type GetAvailabilityResponse = GetAvailabilityResponses[keyof GetAvailabilityResponses];
