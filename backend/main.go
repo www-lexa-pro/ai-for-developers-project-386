@@ -55,10 +55,18 @@ func (*server) GetHealth(context.Context, api.GetHealthRequestObject) (api.GetHe
 	return api.GetHealth200JSONResponse{Status: api.Ok}, nil
 }
 
-func newRouter() *gin.Engine {
+func newRouter() *gin.Engine { return newRouterWithServer(newServer()) }
+
+func newRouterWithServer(s *server, middleware ...gin.HandlerFunc) *gin.Engine {
 	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery(), validateJSONBody)
-	api.RegisterHandlers(router, api.NewStrictHandlerWithOptions(newServer(), nil, api.StrictGinServerOptions{
+	router.Use(gin.Logger(), gin.CustomRecovery(func(c *gin.Context, _ any) {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"code": "internal_error", "message": "Не удалось выполнить запрос"})
+	}), validateJSONBody)
+	router.Use(middleware...)
+	api.RegisterHandlers(router, api.NewStrictHandlerWithOptions(s, nil, api.StrictGinServerOptions{
+		ResponseErrorHandlerFunc: func(c *gin.Context, _ error) {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": "internal_error", "message": "Не удалось выполнить запрос"})
+		},
 		RequestErrorHandlerFunc: func(c *gin.Context, _ error) {
 			c.JSON(http.StatusBadRequest, gin.H{"code": "invalid_request", "message": "Не удалось разобрать запрос"})
 		},

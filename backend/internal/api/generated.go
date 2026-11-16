@@ -50,6 +50,24 @@ func (e AvailabilityDayUnavailableReason) Valid() bool {
 	}
 }
 
+// Defines values for BookingConflictCode.
+const (
+	InvalidTime BookingConflictCode = "invalid_time"
+	TimeBusy    BookingConflictCode = "time_busy"
+)
+
+// Valid indicates whether the value is a known member of the BookingConflictCode enum.
+func (e BookingConflictCode) Valid() bool {
+	switch e {
+	case InvalidTime:
+		return true
+	case TimeBusy:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HealthStatus.
 const (
 	Ok HealthStatus = "ok"
@@ -59,6 +77,21 @@ const (
 func (e HealthStatus) Valid() bool {
 	switch e {
 	case Ok:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InternalErrorCode.
+const (
+	InternalErrorCodeInternalError InternalErrorCode = "internal_error"
+)
+
+// Valid indicates whether the value is a known member of the InternalErrorCode enum.
+func (e InternalErrorCode) Valid() bool {
+	switch e {
+	case InternalErrorCodeInternalError:
 		return true
 	default:
 		return false
@@ -137,6 +170,35 @@ type AvailableSlot struct {
 	Start time.Time `json:"start"`
 }
 
+// Booking defines model for Booking.
+type Booking struct {
+	DurationMinutes int32     `json:"durationMinutes"`
+	Email           string    `json:"email"`
+	End             time.Time `json:"end"`
+	Id              string    `json:"id"`
+	MeetingTypeId   string    `json:"meetingTypeId"`
+	MeetingTypeName string    `json:"meetingTypeName"`
+	Name            string    `json:"name"`
+	Start           time.Time `json:"start"`
+}
+
+// BookingConflict defines model for BookingConflict.
+type BookingConflict struct {
+	Code    BookingConflictCode `json:"code"`
+	Message string              `json:"message"`
+}
+
+// BookingConflictCode defines model for BookingConflict.Code.
+type BookingConflictCode string
+
+// CreateBookingInput defines model for CreateBookingInput.
+type CreateBookingInput struct {
+	Email         string `json:"email"`
+	MeetingTypeId string `json:"meetingTypeId"`
+	Name          string `json:"name"`
+	Start         string `json:"start"`
+}
+
 // CreateMeetingTypeInput defines model for CreateMeetingTypeInput.
 type CreateMeetingTypeInput struct {
 	Description     *string `json:"description,omitempty"`
@@ -151,6 +213,15 @@ type Health struct {
 
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
+
+// InternalError defines model for InternalError.
+type InternalError struct {
+	Code    InternalErrorCode `json:"code"`
+	Message string            `json:"message"`
+}
+
+// InternalErrorCode defines model for InternalError.Code.
+type InternalErrorCode string
 
 // InvalidRequest defines model for InvalidRequest.
 type InvalidRequest struct {
@@ -188,11 +259,17 @@ type ValidationError struct {
 // ValidationErrorCode defines model for ValidationError.Code.
 type ValidationErrorCode string
 
+// CreateBookingJSONRequestBody defines body for CreateBooking for application/json ContentType.
+type CreateBookingJSONRequestBody = CreateBookingInput
+
 // CreateMeetingTypeJSONRequestBody defines body for CreateMeetingType for application/json ContentType.
 type CreateMeetingTypeJSONRequestBody = CreateMeetingTypeInput
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+
+	// (POST /api/bookings)
+	CreateBooking(c *gin.Context)
 
 	// (GET /api/health)
 	GetHealth(c *gin.Context)
@@ -218,6 +295,19 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// CreateBooking operation middleware
+func (siw *ServerInterfaceWrapper) CreateBooking(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateBooking(c)
+}
 
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(c *gin.Context) {
@@ -335,11 +425,104 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
+	router.POST(options.BaseURL+"/api/bookings", wrapper.CreateBooking)
 	router.GET(options.BaseURL+"/api/health", wrapper.GetHealth)
 	router.GET(options.BaseURL+"/api/meeting-types", wrapper.ListMeetingTypes)
 	router.POST(options.BaseURL+"/api/meeting-types", wrapper.CreateMeetingType)
 	router.GET(options.BaseURL+"/api/meeting-types/:id", wrapper.GetMeetingType)
 	router.GET(options.BaseURL+"/api/meeting-types/:id/availability", wrapper.GetAvailability)
+}
+
+type CreateBookingRequestObject struct {
+	Body *CreateBookingJSONRequestBody
+}
+
+type CreateBookingResponseObject interface {
+	VisitCreateBookingResponse(w http.ResponseWriter) error
+}
+
+type CreateBooking201JSONResponse Booking
+
+func (response CreateBooking201JSONResponse) VisitCreateBookingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBooking400JSONResponse InvalidRequest
+
+func (response CreateBooking400JSONResponse) VisitCreateBookingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBooking404JSONResponse MeetingTypeNotFound
+
+func (response CreateBooking404JSONResponse) VisitCreateBookingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBooking409JSONResponse BookingConflict
+
+func (response CreateBooking409JSONResponse) VisitCreateBookingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBooking422JSONResponse ValidationError
+
+func (response CreateBooking422JSONResponse) VisitCreateBookingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBooking500JSONResponse InternalError
+
+func (response CreateBooking500JSONResponse) VisitCreateBookingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type GetHealthRequestObject struct {
@@ -509,6 +692,9 @@ func (response GetAvailability404JSONResponse) VisitGetAvailabilityResponse(w ht
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 
+	// (POST /api/bookings)
+	CreateBooking(ctx context.Context, request CreateBookingRequestObject) (CreateBookingResponseObject, error)
+
 	// (GET /api/health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
 
@@ -580,6 +766,48 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictGinServerOptions
+}
+
+// CreateBooking operation middleware
+func (sh *strictHandler) CreateBooking(ctx *gin.Context) {
+	var request CreateBookingRequestObject
+
+	var body CreateBookingJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateBooking(ctx, request.(CreateBookingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateBooking")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(CreateBookingResponseObject); ok {
+		if err := validResponse.VisitCreateBookingResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // GetHealth operation middleware

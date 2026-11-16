@@ -5,6 +5,11 @@ import type { Availability, AvailableSlot } from "./api/types.gen";
 
 type Props = {
   meetingTypeId: string;
+  disabled?: boolean;
+  selectionDisabled?: boolean;
+  refreshGeneration?: number;
+  resetGeneration?: number;
+  onLoaded?: () => void;
   onSelectionChange?: (slot: AvailableSlot | null) => void;
 };
 type State =
@@ -21,7 +26,15 @@ const timeFormat = new Intl.DateTimeFormat("ru-RU", {
   timeZone: "Europe/Moscow",
 });
 
-export function AvailabilityPicker({ meetingTypeId, onSelectionChange }: Props) {
+export function AvailabilityPicker({
+  meetingTypeId,
+  onSelectionChange,
+  disabled = false,
+  selectionDisabled = false,
+  refreshGeneration = 0,
+  resetGeneration = 0,
+  onLoaded,
+}: Props) {
   const [state, setState] = useState<State>({ id: meetingTypeId, status: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [date, setDate] = useState<string | null>(null);
@@ -29,6 +42,12 @@ export function AvailabilityPicker({ meetingTypeId, onSelectionChange }: Props) 
   const previousType = useRef(meetingTypeId);
   const callback = useRef(onSelectionChange);
   callback.current = onSelectionChange;
+  const loadedCallback = useRef(onLoaded);
+  loadedCallback.current = onLoaded;
+  useEffect(() => {
+    setSlot(null);
+    callback.current?.(null);
+  }, [resetGeneration]);
   useEffect(() => {
     let active = true;
     if (previousType.current !== meetingTypeId) {
@@ -52,6 +71,7 @@ export function AvailabilityPicker({ meetingTypeId, onSelectionChange }: Props) 
             data.days.some((day) => day.date === current && day.slots.length > 0) ? current : null,
           );
           setState({ id: meetingTypeId, status: "ready", data });
+          loadedCallback.current?.();
         } else setState({ id: meetingTypeId, status: "error" });
       } catch {
         if (active) setState({ id: meetingTypeId, status: "error" });
@@ -61,7 +81,7 @@ export function AvailabilityPicker({ meetingTypeId, onSelectionChange }: Props) 
     return () => {
       active = false;
     };
-  }, [meetingTypeId, attempt]);
+  }, [meetingTypeId, attempt, refreshGeneration]);
   function refresh() {
     setSlot(null);
     callback.current?.(null);
@@ -76,7 +96,9 @@ export function AvailabilityPicker({ meetingTypeId, onSelectionChange }: Props) 
     return (
       <div role="alert">
         <Text>Не удалось загрузить свободное время</Text>
-        <Button onClick={refresh}>Повторить</Button>
+        <Button disabled={disabled} onClick={refresh}>
+          Повторить
+        </Button>
       </div>
     );
   if (state.status !== "ready") return null;
@@ -97,7 +119,7 @@ export function AvailabilityPicker({ meetingTypeId, onSelectionChange }: Props) 
           return (
             <Button
               key={day.date}
-              disabled={day.slots.length === 0}
+              disabled={disabled || selectionDisabled || day.slots.length === 0}
               aria-pressed={date === day.date}
               variant={date === day.date ? "filled" : "outline"}
               onClick={() => {
@@ -117,6 +139,7 @@ export function AvailabilityPicker({ meetingTypeId, onSelectionChange }: Props) 
           {selectedDay.slots.map((item) => (
             <Button
               key={item.start}
+              disabled={disabled || selectionDisabled}
               aria-pressed={slot === item.start}
               variant={slot === item.start ? "filled" : "outline"}
               onClick={() => {
@@ -129,7 +152,7 @@ export function AvailabilityPicker({ meetingTypeId, onSelectionChange }: Props) 
           ))}
         </Group>
       )}
-      <Button variant="subtle" onClick={refresh}>
+      <Button disabled={disabled} variant="subtle" onClick={refresh}>
         Обновить календарь
       </Button>
     </Stack>

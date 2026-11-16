@@ -17,15 +17,24 @@ type Screen =
 export function App() {
   const [path, setPath] = useState(window.location.pathname);
   const [attempt, setAttempt] = useState(0);
+  const [guest, setGuest] = useState({ name: "", email: "" });
+  const [sending, setSending] = useState(false);
+  const [unknownBooking, setUnknownBooking] = useState(false);
   const [screen, setScreen] = useState<Screen>({ status: "loading" });
   const owner = path === "/owner";
   const id = /^\/meeting-types\/([^/]+)$/.exec(path)?.[1];
 
   useEffect(() => {
-    const onPop = () => setPath(window.location.pathname);
+    const onPop = () => {
+      if (sending) {
+        window.history.pushState(null, "", path);
+        return;
+      }
+      setPath(window.location.pathname);
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, []);
+  }, [sending, path]);
 
   useEffect(() => {
     if (owner) return;
@@ -59,7 +68,7 @@ export function App() {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
       return;
     event.preventDefault();
-    if (destination === path) return;
+    if (sending || destination === path) return;
     window.history.pushState(null, "", destination);
     setScreen({ status: "loading" });
     setPath(destination);
@@ -84,6 +93,7 @@ export function App() {
             component="a"
             href="/owner"
             onClick={(event) => navigate(event, "/owner")}
+            aria-disabled={sending}
             variant="subtle"
             color="dark"
           >
@@ -167,10 +177,28 @@ export function App() {
                   </div>
                 )}
                 {id && screen.status === "ready" && (
-                  <BookingPage meetingTypeId={decodeURIComponent(id)} />
+                  <BookingPage
+                    key={id}
+                    meetingTypeId={decodeURIComponent(id)}
+                    guest={guest}
+                    onGuestChange={setGuest}
+                    unknown={unknownBooking}
+                    onUnknownChange={setUnknownBooking}
+                    onSendingChange={setSending}
+                    onSuccess={() => {
+                      setGuest({ name: "", email: "" });
+                      setUnknownBooking(false);
+                    }}
+                  />
                 )}
                 {id && (
-                  <Button component="a" href="/" onClick={(event) => navigate(event, "/")} mt="md">
+                  <Button
+                    component="a"
+                    href="/"
+                    aria-disabled={sending}
+                    onClick={(event) => navigate(event, "/")}
+                    mt="md"
+                  >
                     Вернуться к типам встреч
                   </Button>
                 )}

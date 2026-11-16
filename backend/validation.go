@@ -29,5 +29,21 @@ func validateJSONBody(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"code": "invalid_request", "message": "Не удалось разобрать запрос"})
 		return
 	}
+	if c.Request.URL.Path == "/api/bookings" {
+		// Go's JSON decoder accepts null for a string as its zero value.
+		// Preserve the contract distinction: wrong JSON types are 400,
+		// while empty strings receive the normal field validation response.
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(trimmed, &fields); err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"code": "invalid_request", "message": "Не удалось разобрать запрос"})
+			return
+		}
+		for _, key := range []string{"meetingTypeId", "start", "name", "email"} {
+			if bytes.Equal(bytes.TrimSpace(fields[key]), []byte("null")) {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"code": "invalid_request", "message": "Не удалось разобрать запрос"})
+				return
+			}
+		}
+	}
 	c.Request.Body = io.NopCloser(bytes.NewReader(body))
 }

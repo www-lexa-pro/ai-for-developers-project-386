@@ -96,3 +96,54 @@ op createMeetingType(@body input: CreateMeetingTypeInput): {
   @statusCode statusCode: 422;
   @body body: ValidationError;
 };
+
+model Booking {
+  id: string;
+  meetingTypeId: string;
+  meetingTypeName: string;
+  durationMinutes: int32;
+  start: utcDateTime;
+  end: utcDateTime;
+  name: string;
+  email: string;
+}
+
+model CreateBookingInput {
+  meetingTypeId: string;
+  start: string;
+  name: string;
+  email: string;
+}
+
+model BookingConflict {
+  code: "time_busy" | "invalid_time";
+  message: string;
+}
+
+model InternalError {
+  code: "internal_error";
+  message: string;
+}
+
+@route("/api/bookings")
+@post
+@operationId("createBooking")
+op createBooking(@body input: CreateBookingInput): {
+  @statusCode statusCode: 201;
+  @body body: Booking;
+} | {
+  @statusCode statusCode: 400;
+  @body body: InvalidRequest;
+} | {
+  @statusCode statusCode: 422;
+  @body body: ValidationError;
+} | {
+  @statusCode statusCode: 404;
+  @body body: MeetingTypeNotFound;
+} | {
+  @statusCode statusCode: 409;
+  @body body: BookingConflict;
+} | {
+  @statusCode statusCode: 500;
+  @body body: InternalError;
+};

@@ -22,6 +22,29 @@ export type AvailableSlot = {
     end: string;
 };
 
+export type Booking = {
+    id: string;
+    meetingTypeId: string;
+    meetingTypeName: string;
+    durationMinutes: number;
+    start: string;
+    end: string;
+    name: string;
+    email: string;
+};
+
+export type BookingConflict = {
+    code: 'time_busy' | 'invalid_time';
+    message: string;
+};
+
+export type CreateBookingInput = {
+    meetingTypeId: string;
+    start: string;
+    name: string;
+    email: string;
+};
+
 export type CreateMeetingTypeInput = {
     name: string;
     description?: string;
@@ -30,6 +53,11 @@ export type CreateMeetingTypeInput = {
 
 export type Health = {
     status: 'ok';
+};
+
+export type InternalError = {
+    code: 'internal_error';
+    message: string;
 };
 
 export type InvalidRequest = {
@@ -56,6 +84,47 @@ export type ValidationError = {
         [key: string]: string;
     };
 };
+
+export type CreateBookingData = {
+    body: CreateBookingInput;
+    path?: never;
+    query?: never;
+    url: '/api/bookings';
+};
+
+export type CreateBookingErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: InvalidRequest;
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: MeetingTypeNotFound;
+    /**
+     * The request conflicts with the current state of the server.
+     */
+    409: BookingConflict;
+    /**
+     * Client error
+     */
+    422: ValidationError;
+    /**
+     * Server error
+     */
+    500: InternalError;
+};
+
+export type CreateBookingError = CreateBookingErrors[keyof CreateBookingErrors];
+
+export type CreateBookingResponses = {
+    /**
+     * The request has succeeded and a new resource has been created as a result.
+     */
+    201: Booking;
+};
+
+export type CreateBookingResponse = CreateBookingResponses[keyof CreateBookingResponses];
 
 export type GetHealthData = {
     body?: never;

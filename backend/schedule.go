@@ -3,6 +3,8 @@ package main
 import (
 	"time"
 	_ "time/tzdata"
+
+	"github.com/www-lexa-pro/ai-for-developers-project-386/backend/internal/api"
 )
 
 var moscow = func() *time.Location {
@@ -13,11 +15,18 @@ var moscow = func() *time.Location {
 	return location
 }()
 
-type bookingInterval struct{ start, end time.Time }
+type bookingInterval struct {
+	start, end   time.Time
+	confirmation api.Booking
+}
 type scheduleDay struct {
 	date   time.Time
 	reason string
 	slots  []bookingInterval
+}
+
+func overlaps(start, end time.Time, booking bookingInterval) bool {
+	return start.Before(booking.end) && end.After(booking.start)
 }
 
 // availableDays computes a single snapshot; its caller supplies time and all bookings.
@@ -36,7 +45,7 @@ func availableDays(now time.Time, duration int, bookings []bookingInterval) []sc
 				end := start.Add(time.Duration(duration) * time.Minute)
 				free := true
 				for _, booking := range bookings {
-					if start.Before(booking.end) && end.After(booking.start) {
+					if overlaps(start, end, booking) {
 						free = false
 						break
 					}
