@@ -398,3 +398,46 @@ test.each([{ fields: ["ошибка"] }, { fields: { name: "" } }])(
     expect(await screen.findByText(/Запись могла создаться/)).toBeTruthy();
   },
 );
+
+test("подтверждение новой записи сохраняет предупреждение о предыдущем неизвестном результате до возврата", async () => {
+  let posts = 0;
+  vi.stubGlobal("fetch", async (request: Request) => {
+    if (request.method === "POST") {
+      posts++;
+      if (posts === 1) throw Error("lost response");
+      return respond(
+        {
+          id: "booking",
+          meetingTypeId: type.id,
+          meetingTypeName: type.name,
+          durationMinutes: 15,
+          ...slot,
+          name: "Я",
+          email: "a@example.com",
+        },
+        201,
+      );
+    }
+    const path = new URL(request.url).pathname;
+    return respond(
+      path.endsWith("/availability") ? snapshot : path === "/api/meeting-types" ? [type] : type,
+    );
+  });
+  render(<App />);
+  await userEvent.click(await screen.findByRole("button", { name: /17 ноября/ }));
+  await userEvent.click(screen.getByRole("button", { name: "09:00–09:15" }));
+  await userEvent.type(screen.getByLabelText("Имя"), "Я");
+  await userEvent.type(screen.getByLabelText("Email"), "a@example.com");
+  await userEvent.click(screen.getByRole("button", { name: "Записаться" }));
+  await screen.findByText(/Запись могла создаться/);
+  await userEvent.click(screen.getByRole("button", { name: "Обновить календарь" }));
+  await userEvent.click(await screen.findByRole("button", { name: "09:00–09:15" }));
+  await userEvent.click(screen.getByRole("button", { name: "Записаться" }));
+  await screen.findByText("Вы записаны");
+  expect(screen.getByText(/Запись могла создаться/)).toBeTruthy();
+  expect(posts).toBe(2);
+  await userEvent.click(screen.getByRole("link", { name: "Вернуться к типам встреч" }));
+  await userEvent.click(await screen.findByRole("link", { name: "Выбрать Знакомство" }));
+  expect(await screen.findByLabelText("Имя")).toHaveProperty("value", "");
+  expect(screen.queryByText(/Запись могла создаться/)).toBeNull();
+});

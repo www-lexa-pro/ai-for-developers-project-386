@@ -55,7 +55,9 @@ export function BookingPage({
   const [selection, setSelection] = useState<AvailableSlot | null>(null);
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
-  const [confirmation, setConfirmation] = useState<Booking | null>(null);
+  const [confirmation, setConfirmation] = useState<
+    (Booking & { previousResultUnknown: boolean }) | null
+  >(null);
   const [fields, setFields] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState("");
   const [missing, setMissing] = useState(false);
@@ -107,7 +109,7 @@ export function BookingPage({
         Date.parse(result.data.end) - Date.parse(result.data.start) ===
           result.data.durationMinutes * 60_000
       ) {
-        setConfirmation(result.data);
+        setConfirmation({ ...result.data, previousResultUnknown: unknown });
         onSuccess();
       } else if (
         result.response?.status === 422 &&
@@ -158,6 +160,9 @@ export function BookingPage({
     return (
       <Stack mt="lg">
         <Title order={2}>Вы записаны</Title>
+        {confirmation.previousResultUnknown && (
+          <Text role="alert">Запись могла создаться и при предыдущей попытке.</Text>
+        )}
         <Text>{confirmation.meetingTypeName}</Text>
         <Text>
           {dateFormat.format(new Date(confirmation.start))},{" "}
