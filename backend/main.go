@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -16,7 +17,10 @@ import (
 	"github.com/www-lexa-pro/ai-for-developers-project-386/backend/internal/api"
 )
 
-type server struct{ meetingTypes []api.MeetingType }
+type server struct {
+	mu           sync.Mutex
+	meetingTypes []api.MeetingType
+}
 
 func newServer() *server {
 	return &server{meetingTypes: []api.MeetingType{
@@ -27,10 +31,14 @@ func newServer() *server {
 }
 
 func (s *server) ListMeetingTypes(context.Context, api.ListMeetingTypesRequestObject) (api.ListMeetingTypesResponseObject, error) {
-	return api.ListMeetingTypes200JSONResponse(s.meetingTypes), nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return api.ListMeetingTypes200JSONResponse(append([]api.MeetingType{}, s.meetingTypes...)), nil
 }
 
 func (s *server) GetMeetingType(_ context.Context, request api.GetMeetingTypeRequestObject) (api.GetMeetingTypeResponseObject, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, meetingType := range s.meetingTypes {
 		if meetingType.Id == request.Id {
 			return api.GetMeetingType200JSONResponse(meetingType), nil
@@ -39,14 +47,18 @@ func (s *server) GetMeetingType(_ context.Context, request api.GetMeetingTypeReq
 	return api.GetMeetingType404JSONResponse{Code: api.MeetingTypeNotFoundCodeMeetingTypeNotFound, Message: "Этот тип встречи больше недоступен"}, nil
 }
 
-func (server) GetHealth(context.Context, api.GetHealthRequestObject) (api.GetHealthResponseObject, error) {
+func (*server) GetHealth(context.Context, api.GetHealthRequestObject) (api.GetHealthResponseObject, error) {
 	return api.GetHealth200JSONResponse{Status: api.Ok}, nil
 }
 
 func newRouter() *gin.Engine {
 	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery())
-	api.RegisterHandlers(router, api.NewStrictHandler(newServer(), nil))
+	router.Use(gin.Logger(), gin.Recovery(), validateJSONBody)
+	api.RegisterHandlers(router, api.NewStrictHandlerWithOptions(newServer(), nil, api.StrictGinServerOptions{
+		RequestErrorHandlerFunc: func(c *gin.Context, _ error) {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "invalid_request", "message": "Не удалось разобрать запрос"})
+		},
+	}))
 	return router
 }
 

@@ -28,6 +28,34 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/MeetingType'
+    post:
+      operationId: createMeetingType
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingType'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidRequest'
+        '422':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMeetingTypeInput'
   /api/meeting-types/{id}:
     get:
       operationId: getMeetingType
@@ -52,6 +80,19 @@ paths:
                 $ref: '#/components/schemas/MeetingTypeNotFound'
 components:
   schemas:
+    CreateMeetingTypeInput:
+      type: object
+      required:
+        - name
+        - durationMinutes
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: number
+          format: double
     Health:
       type: object
       required:
@@ -61,6 +102,18 @@ components:
           type: string
           enum:
             - ok
+    InvalidRequest:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          enum:
+            - invalid_request
+        message:
+          type: string
     MeetingType:
       type: object
       required:
@@ -90,3 +143,20 @@ components:
             - meeting_type_not_found
         message:
           type: string
+    ValidationError:
+      type: object
+      required:
+        - code
+        - message
+        - fields
+      properties:
+        code:
+          type: string
+          enum:
+            - validation_error
+        message:
+          type: string
+        fields:
+          type: object
+          additionalProperties:
+            type: string

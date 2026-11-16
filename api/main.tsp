@@ -39,3 +39,34 @@ op getMeetingType(@path id: string): MeetingType | {
   @statusCode statusCode: 404;
   @body body: MeetingTypeNotFound;
 };
+
+model CreateMeetingTypeInput {
+  name: string;
+  description?: string;
+  durationMinutes: float64;
+}
+
+model InvalidRequest {
+  code: "invalid_request";
+  message: string;
+}
+
+model ValidationError {
+  code: "validation_error";
+  message: string;
+  fields: Record<string>;
+}
+
+@route("/api/meeting-types")
+@post
+@operationId("createMeetingType")
+op createMeetingType(@body input: CreateMeetingTypeInput): {
+  @statusCode statusCode: 201;
+  @body body: MeetingType;
+} | {
+  @statusCode statusCode: 400;
+  @body body: InvalidRequest;
+} | {
+  @statusCode statusCode: 422;
+  @body body: ValidationError;
+};

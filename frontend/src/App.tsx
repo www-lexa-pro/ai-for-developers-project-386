@@ -5,6 +5,7 @@ import type { MouseEvent } from "react";
 import { getMeetingType, listMeetingTypes } from "./api/sdk.gen";
 import type { MeetingType } from "./api/types.gen";
 import "./styles.css";
+import { OwnerPage } from "./OwnerPage";
 
 type Screen =
   | { status: "loading" }
@@ -16,6 +17,7 @@ export function App() {
   const [path, setPath] = useState(window.location.pathname);
   const [attempt, setAttempt] = useState(0);
   const [screen, setScreen] = useState<Screen>({ status: "loading" });
+  const owner = path === "/owner";
   const id = /^\/meeting-types\/([^/]+)$/.exec(path)?.[1];
 
   useEffect(() => {
@@ -25,6 +27,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (owner) return;
     let active = true;
     setScreen({ status: "loading" });
     async function load() {
@@ -49,7 +52,7 @@ export function App() {
     return () => {
       active = false;
     };
-  }, [id, attempt]);
+  }, [id, attempt, owner]);
 
   function navigate(event: MouseEvent<HTMLAnchorElement>, destination: string) {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
@@ -76,99 +79,111 @@ export function App() {
             </span>
             Запись на звонок
           </a>
-          <Button variant="subtle" color="dark" disabled>
-            Для владельца · скоро
+          <Button
+            component="a"
+            href="/owner"
+            onClick={(event) => navigate(event, "/owner")}
+            variant="subtle"
+            color="dark"
+          >
+            Для владельца
           </Button>
         </header>
         <main>
-          <section className="intro" aria-labelledby="page-title">
-            <Badge variant="light" color="dark" radius="sm">
-              Время для разговора
-            </Badge>
-            <Title id="page-title" order={1}>
-              {id ? (
-                "Выбранный формат встречи"
-              ) : (
-                <>
-                  Хороший разговор
-                  <br />
-                  начинается со встречи.
-                </>
-              )}
-            </Title>
-            <Text className="lead">Выберите формат, который подходит вашему вопросу.</Text>
-            <Group gap="xs" className="schedule">
-              <span className="status-dot" aria-hidden="true" />
-              <Text size="sm">Пн–пт, 09:00–18:00</Text>
-              <span aria-hidden="true">·</span>
-              <Text size="sm">Московское время (UTC+3)</Text>
-            </Group>
-          </section>
-          <section className="formats" aria-label="Типы встреч">
-            {screen.status === "loading" && <Text role="status">Загрузка типов встреч…</Text>}
-            {screen.status === "error" && (
-              <div role="alert">
-                <Text>Не удалось загрузить типы встреч</Text>
-                <Button onClick={() => setAttempt((value) => value + 1)}>Повторить</Button>
-              </div>
-            )}
-            {screen.status === "missing" && (
-              <Text role="alert">Этот тип встречи больше недоступен</Text>
-            )}
-            {screen.status === "ready" && screen.types.length === 0 && (
-              <Text>Нет типов встреч</Text>
-            )}
-            {screen.status === "ready" && (
-              <div className="meeting-grid">
-                {screen.types.map((meeting, index) => (
-                  <article
-                    key={meeting.id}
-                    className={`meeting-card ${["sage", "sand", "lilac"][index % 3]}`}
-                  >
-                    <div className="card-top">
-                      <span className="meeting-symbol" aria-hidden="true">
-                        ↗
-                      </span>
-                      <span className="duration">{meeting.durationMinutes} мин</span>
-                    </div>
-                    <Title order={id ? 2 : 3}>{meeting.name}</Title>
-                    <Text className="description">{meeting.description}</Text>
-                    {!id && (
-                      <Button
-                        component="a"
-                        href={`/meeting-types/${encodeURIComponent(meeting.id)}`}
-                        onClick={(event) =>
-                          navigate(event, `/meeting-types/${encodeURIComponent(meeting.id)}`)
-                        }
-                        aria-label={`Выбрать ${meeting.name}`}
-                        fullWidth
-                        variant="white"
-                        className="booking-button"
+          {owner ? (
+            <OwnerPage />
+          ) : (
+            <>
+              <section className="intro" aria-labelledby="page-title">
+                <Badge variant="light" color="dark" radius="sm">
+                  Время для разговора
+                </Badge>
+                <Title id="page-title" order={1}>
+                  {id ? (
+                    "Выбранный формат встречи"
+                  ) : (
+                    <>
+                      Хороший разговор
+                      <br />
+                      начинается со встречи.
+                    </>
+                  )}
+                </Title>
+                <Text className="lead">Выберите формат, который подходит вашему вопросу.</Text>
+                <Group gap="xs" className="schedule">
+                  <span className="status-dot" aria-hidden="true" />
+                  <Text size="sm">Пн–пт, 09:00–18:00</Text>
+                  <span aria-hidden="true">·</span>
+                  <Text size="sm">Московское время (UTC+3)</Text>
+                </Group>
+              </section>
+              <section className="formats" aria-label="Типы встреч">
+                {screen.status === "loading" && <Text role="status">Загрузка типов встреч…</Text>}
+                {screen.status === "error" && (
+                  <div role="alert">
+                    <Text>Не удалось загрузить типы встреч</Text>
+                    <Button onClick={() => setAttempt((value) => value + 1)}>Повторить</Button>
+                  </div>
+                )}
+                {screen.status === "missing" && (
+                  <Text role="alert">Этот тип встречи больше недоступен</Text>
+                )}
+                {screen.status === "ready" && screen.types.length === 0 && (
+                  <Text>Нет типов встреч</Text>
+                )}
+                {screen.status === "ready" && (
+                  <div className="meeting-grid">
+                    {screen.types.map((meeting, index) => (
+                      <article
+                        key={meeting.id}
+                        className={`meeting-card ${["sage", "sand", "lilac"][index % 3]}`}
                       >
-                        Выбрать формат
-                      </Button>
-                    )}
-                  </article>
-                ))}
-              </div>
-            )}
-            {id && (
-              <Button component="a" href="/" onClick={(event) => navigate(event, "/")} mt="md">
-                Вернуться к типам встреч
-              </Button>
-            )}
-          </section>
-          <aside className="booking-info" aria-label="Условия записи">
-            <span className="info-symbol" aria-hidden="true">
-              ↗
-            </span>
-            <div>
-              <Text fw={600}>Ваш вопрос. Подходящий формат. Удобное время.</Text>
-              <Text size="sm" c="dimmed">
-                Выбор времени и запись появятся на следующем этапе.
-              </Text>
-            </div>
-          </aside>
+                        <div className="card-top">
+                          <span className="meeting-symbol" aria-hidden="true">
+                            ↗
+                          </span>
+                          <span className="duration">{meeting.durationMinutes} мин</span>
+                        </div>
+                        <Title order={id ? 2 : 3}>{meeting.name}</Title>
+                        <Text className="description">{meeting.description}</Text>
+                        {!id && (
+                          <Button
+                            component="a"
+                            href={`/meeting-types/${encodeURIComponent(meeting.id)}`}
+                            onClick={(event) =>
+                              navigate(event, `/meeting-types/${encodeURIComponent(meeting.id)}`)
+                            }
+                            aria-label={`Выбрать ${meeting.name}`}
+                            fullWidth
+                            variant="white"
+                            className="booking-button"
+                          >
+                            Выбрать формат
+                          </Button>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                )}
+                {id && (
+                  <Button component="a" href="/" onClick={(event) => navigate(event, "/")} mt="md">
+                    Вернуться к типам встреч
+                  </Button>
+                )}
+              </section>
+              <aside className="booking-info" aria-label="Условия записи">
+                <span className="info-symbol" aria-hidden="true">
+                  ↗
+                </span>
+                <div>
+                  <Text fw={600}>Ваш вопрос. Подходящий формат. Удобное время.</Text>
+                  <Text size="sm" c="dimmed">
+                    Выбор времени и запись появятся на следующем этапе.
+                  </Text>
+                </div>
+              </aside>
+            </>
+          )}
         </main>
         <footer className="footer">
           <Text size="sm">Запись на звонок</Text>

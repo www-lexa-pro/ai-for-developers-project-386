@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"github.com/oapi-codegen/runtime"
 )
 
@@ -23,6 +24,21 @@ const (
 func (e HealthStatus) Valid() bool {
 	switch e {
 	case Ok:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InvalidRequestCode.
+const (
+	InvalidRequestCodeInvalidRequest InvalidRequestCode = "invalid_request"
+)
+
+// Valid indicates whether the value is a known member of the InvalidRequestCode enum.
+func (e InvalidRequestCode) Valid() bool {
+	switch e {
+	case InvalidRequestCodeInvalidRequest:
 		return true
 	default:
 		return false
@@ -44,6 +60,28 @@ func (e MeetingTypeNotFoundCode) Valid() bool {
 	}
 }
 
+// Defines values for ValidationErrorCode.
+const (
+	ValidationErrorCodeValidationError ValidationErrorCode = "validation_error"
+)
+
+// Valid indicates whether the value is a known member of the ValidationErrorCode enum.
+func (e ValidationErrorCode) Valid() bool {
+	switch e {
+	case ValidationErrorCodeValidationError:
+		return true
+	default:
+		return false
+	}
+}
+
+// CreateMeetingTypeInput defines model for CreateMeetingTypeInput.
+type CreateMeetingTypeInput struct {
+	Description     *string `json:"description,omitempty"`
+	DurationMinutes float64 `json:"durationMinutes"`
+	Name            string  `json:"name"`
+}
+
 // Health defines model for Health.
 type Health struct {
 	Status HealthStatus `json:"status"`
@@ -51,6 +89,15 @@ type Health struct {
 
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
+
+// InvalidRequest defines model for InvalidRequest.
+type InvalidRequest struct {
+	Code    InvalidRequestCode `json:"code"`
+	Message string             `json:"message"`
+}
+
+// InvalidRequestCode defines model for InvalidRequest.Code.
+type InvalidRequestCode string
 
 // MeetingType defines model for MeetingType.
 type MeetingType struct {
@@ -69,6 +116,19 @@ type MeetingTypeNotFound struct {
 // MeetingTypeNotFoundCode defines model for MeetingTypeNotFound.Code.
 type MeetingTypeNotFoundCode string
 
+// ValidationError defines model for ValidationError.
+type ValidationError struct {
+	Code    ValidationErrorCode `json:"code"`
+	Fields  map[string]string   `json:"fields"`
+	Message string              `json:"message"`
+}
+
+// ValidationErrorCode defines model for ValidationError.Code.
+type ValidationErrorCode string
+
+// CreateMeetingTypeJSONRequestBody defines body for CreateMeetingType for application/json ContentType.
+type CreateMeetingTypeJSONRequestBody = CreateMeetingTypeInput
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
@@ -77,6 +137,9 @@ type ServerInterface interface {
 
 	// (GET /api/meeting-types)
 	ListMeetingTypes(c *gin.Context)
+
+	// (POST /api/meeting-types)
+	CreateMeetingType(c *gin.Context)
 
 	// (GET /api/meeting-types/{id})
 	GetMeetingType(c *gin.Context, id string)
@@ -115,6 +178,19 @@ func (siw *ServerInterfaceWrapper) ListMeetingTypes(c *gin.Context) {
 	}
 
 	siw.Handler.ListMeetingTypes(c)
+}
+
+// CreateMeetingType operation middleware
+func (siw *ServerInterfaceWrapper) CreateMeetingType(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateMeetingType(c)
 }
 
 // GetMeetingType operation middleware
@@ -171,6 +247,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 
 	router.GET(options.BaseURL+"/api/health", wrapper.GetHealth)
 	router.GET(options.BaseURL+"/api/meeting-types", wrapper.ListMeetingTypes)
+	router.POST(options.BaseURL+"/api/meeting-types", wrapper.CreateMeetingType)
 	router.GET(options.BaseURL+"/api/meeting-types/:id", wrapper.GetMeetingType)
 }
 
@@ -212,6 +289,56 @@ func (response ListMeetingTypes200JSONResponse) VisitListMeetingTypesResponse(w 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMeetingTypeRequestObject struct {
+	Body *CreateMeetingTypeJSONRequestBody
+}
+
+type CreateMeetingTypeResponseObject interface {
+	VisitCreateMeetingTypeResponse(w http.ResponseWriter) error
+}
+
+type CreateMeetingType201JSONResponse MeetingType
+
+func (response CreateMeetingType201JSONResponse) VisitCreateMeetingTypeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMeetingType400JSONResponse InvalidRequest
+
+func (response CreateMeetingType400JSONResponse) VisitCreateMeetingTypeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMeetingType422JSONResponse ValidationError
+
+func (response CreateMeetingType422JSONResponse) VisitCreateMeetingTypeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -260,6 +387,9 @@ type StrictServerInterface interface {
 
 	// (GET /api/meeting-types)
 	ListMeetingTypes(ctx context.Context, request ListMeetingTypesRequestObject) (ListMeetingTypesResponseObject, error)
+
+	// (POST /api/meeting-types)
+	CreateMeetingType(ctx context.Context, request CreateMeetingTypeRequestObject) (CreateMeetingTypeResponseObject, error)
 
 	// (GET /api/meeting-types/{id})
 	GetMeetingType(ctx context.Context, request GetMeetingTypeRequestObject) (GetMeetingTypeResponseObject, error)
@@ -363,6 +493,48 @@ func (sh *strictHandler) ListMeetingTypes(ctx *gin.Context) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(ListMeetingTypesResponseObject); ok {
 		if err := validResponse.VisitListMeetingTypesResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateMeetingType operation middleware
+func (sh *strictHandler) CreateMeetingType(ctx *gin.Context) {
+	var request CreateMeetingTypeRequestObject
+
+	var body CreateMeetingTypeJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateMeetingType(ctx, request.(CreateMeetingTypeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateMeetingType")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(CreateMeetingTypeResponseObject); ok {
+		if err := validResponse.VisitCreateMeetingTypeResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {

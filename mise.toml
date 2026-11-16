@@ -41,7 +41,7 @@ run = "mise daemons logs"
 run = "mise daemons stop"
 
 [tasks.lint]
-run = ["npm exec oxlint -- --deny-warnings frontend/src/main.tsx frontend/src/App.tsx frontend/tests vitest.config.ts vite.config.ts openapi-ts.config.ts", "npm exec oxfmt -- --check frontend/src/main.tsx frontend/src/App.tsx frontend/tests vitest.config.ts vite.config.ts openapi-ts.config.ts commitlint.config.js", "cd backend && golangci-lint run && golangci-lint fmt --diff", "jactionlint .github/workflows/check.yml"]
+run = ["npm exec oxlint -- --deny-warnings frontend/src/main.tsx frontend/src/App.tsx frontend/src/OwnerPage.tsx frontend/tests vitest.config.ts vite.config.ts openapi-ts.config.ts", "npm exec oxfmt -- --check frontend/src/main.tsx frontend/src/App.tsx frontend/src/OwnerPage.tsx frontend/tests vitest.config.ts vite.config.ts openapi-ts.config.ts commitlint.config.js", "cd backend && golangci-lint run && golangci-lint fmt --diff", "jactionlint .github/workflows/check.yml"]
 
 [tasks.test]
 run = ["cd backend && go test -count=1 ./...", "npm run test:ui"]
