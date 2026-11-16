@@ -22,8 +22,19 @@ export type AvailableSlot = {
     end: string;
 };
 
+export type CreateMeetingTypeInput = {
+    name: string;
+    description?: string;
+    durationMinutes: number;
+};
+
 export type Health = {
     status: 'ok';
+};
+
+export type InvalidRequest = {
+    code: 'invalid_request';
+    message: string;
 };
 
 export type MeetingType = {
@@ -36,6 +47,14 @@ export type MeetingType = {
 export type MeetingTypeNotFound = {
     code: 'meeting_type_not_found';
     message: string;
+};
+
+export type ValidationError = {
+    code: 'validation_error';
+    message: string;
+    fields: {
+        [key: string]: string;
+    };
 };
 
 export type GetHealthData = {
@@ -69,6 +88,35 @@ export type ListMeetingTypesResponses = {
 };
 
 export type ListMeetingTypesResponse = ListMeetingTypesResponses[keyof ListMeetingTypesResponses];
+
+export type CreateMeetingTypeData = {
+    body: CreateMeetingTypeInput;
+    path?: never;
+    query?: never;
+    url: '/api/meeting-types';
+};
+
+export type CreateMeetingTypeErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: InvalidRequest;
+    /**
+     * Client error
+     */
+    422: ValidationError;
+};
+
+export type CreateMeetingTypeError = CreateMeetingTypeErrors[keyof CreateMeetingTypeErrors];
+
+export type CreateMeetingTypeResponses = {
+    /**
+     * The request has succeeded and a new resource has been created as a result.
+     */
+    201: MeetingType;
+};
+
+export type CreateMeetingTypeResponse = CreateMeetingTypeResponses[keyof CreateMeetingTypeResponses];
 
 export type GetMeetingTypeData = {
     body?: never;

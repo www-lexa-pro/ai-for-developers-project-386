@@ -57,8 +57,12 @@ func (*server) GetHealth(context.Context, api.GetHealthRequestObject) (api.GetHe
 
 func newRouter() *gin.Engine {
 	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery())
-	api.RegisterHandlers(router, api.NewStrictHandler(newServer(), nil))
+	router.Use(gin.Logger(), gin.Recovery(), validateJSONBody)
+	api.RegisterHandlers(router, api.NewStrictHandlerWithOptions(newServer(), nil, api.StrictGinServerOptions{
+		RequestErrorHandlerFunc: func(c *gin.Context, _ error) {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "invalid_request", "message": "Не удалось разобрать запрос"})
+		},
+	}))
 	return router
 }
 
