@@ -30,6 +30,8 @@ mise run setup
 и backend/go.mod/go.sum. Для обхода уязвимой транзитивной зависимости генератора
 SDK закреплён js-yaml 4.3.2 через npm overrides.
 
+Публичное приложение: [cal-hexlet.onrender.com](https://cal-hexlet.onrender.com).
+
 ## Использование
 
 ```bash

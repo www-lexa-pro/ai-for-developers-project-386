@@ -4,13 +4,14 @@ import type { Availability } from "../src/api/types.gen";
 test("владелец создаёт тип, гость записывается, владелец видит точную встречу", async ({
   page,
 }) => {
+  const typeName = `Проверка полного пути ${Date.now()}`;
   await page.goto("/");
   for (const name of ["Знакомство", "Консультация", "Подробный разбор"])
     await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
-  await expect(page.getByRole("article")).toHaveCount(3);
+  expect(await page.getByRole("article").count()).toBeGreaterThanOrEqual(3);
   await page.getByRole("link", { name: "Для владельца" }).click();
   await page.reload();
-  await page.getByLabel("Название", { exact: true }).fill("Проверка полного пути");
+  await page.getByLabel("Название", { exact: true }).fill(typeName);
   await page.getByLabel("Описание", { exact: true }).fill("Встреча из настоящего браузера");
   await page.getByLabel("Длительность, минут").fill("45");
   await page.getByRole("button", { name: "Создать тип", exact: true }).click();
@@ -18,7 +19,7 @@ test("владелец создаёт тип, гость записываетс�
   await page.getByRole("link", { name: "Запись на звонок — главная" }).click();
   const type = page
     .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: "Проверка полного пути", exact: true }) });
+    .filter({ has: page.getByRole("heading", { name: typeName, exact: true }) });
   const availabilityResponse = page.waitForResponse(
     (response) => response.url().endsWith("/availability") && response.status() === 200,
   );
@@ -46,7 +47,7 @@ test("владелец создаёт тип, гость записываетс�
   await page.getByLabel("Email", { exact: true }).fill("A+browser@Example.com");
   await page.getByRole("button", { name: "Записаться", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Вы записаны" })).toBeVisible();
-  await expect(page.getByText("Проверка полного пути", { exact: true })).toHaveCount(2);
+  await expect(page.getByText(typeName, { exact: true })).toHaveCount(2);
   const fullDate = new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
     month: "long",
@@ -65,9 +66,27 @@ test("владелец создаёт тип, гость записываетс�
     },
   });
   expect(duplicate.status()).toBe(409);
+  const catalog = await page.request.get("/api/meeting-types");
+  expect(catalog.status()).toBe(200);
+  const otherType = (await catalog.json()).find(
+    (type: { id: string; durationMinutes: number }) =>
+      type.id !== /meeting-types\/([^/]+)/.exec(page.url())![1] && type.durationMinutes === 15,
+  );
+  expect(otherType).toBeTruthy();
+  const overlapping = await page.request.post("/api/bookings", {
+    data: {
+      meetingTypeId: otherType.id,
+      start: new Date(new Date(slot.start).getTime() + 30 * 60 * 1000).toISOString(),
+      name: "Пересечение",
+      email: "overlap@example.com",
+    },
+  });
+  expect(overlapping.status()).toBe(409);
+  expect(await overlapping.json()).toMatchObject({ code: "time_busy" });
+
   await page.getByRole("link", { name: "Для владельца" }).click();
   const meetings = page.getByRole("region", { name: "Предстоящие встречи" });
-  await expect(meetings.getByRole("heading", { name: "Проверка полного пути" })).toBeVisible();
+  await expect(meetings.getByRole("heading", { name: typeName })).toBeVisible();
   for (const value of [
     "Алексей",
     "A+browser@Example.com",
