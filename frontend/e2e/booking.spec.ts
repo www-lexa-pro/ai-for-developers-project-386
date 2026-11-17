@@ -9,6 +9,7 @@ test("владелец создаёт тип, гость записываетс�
     await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
   await expect(page.getByRole("article")).toHaveCount(3);
   await page.getByRole("link", { name: "Для владельца" }).click();
+  await page.reload();
   await page.getByLabel("Название", { exact: true }).fill("Проверка полного пути");
   await page.getByLabel("Описание", { exact: true }).fill("Встреча из настоящего браузера");
   await page.getByLabel("Длительность, минут").fill("45");
@@ -23,6 +24,7 @@ test("владелец создаёт тип, гость записываетс�
   );
   await type.getByRole("link").click();
   const availability: Availability = await (await availabilityResponse).json();
+  await page.reload();
   expect(availability.days).toHaveLength(14);
   const day = availability.days.find((day) => day.slots.length > 0)!;
   expect(day).toBeTruthy();
@@ -54,6 +56,15 @@ test("владелец создаёт тип, гость записываетс�
   await expect(page.getByText(`${fullDate}, ${interval} (Москва)`, { exact: true })).toBeVisible();
   await expect(page.getByText("Алексей", { exact: true })).toBeVisible();
   await expect(page.getByText("A+browser@Example.com", { exact: true })).toBeVisible();
+  const duplicate = await page.request.post("/api/bookings", {
+    data: {
+      meetingTypeId: /meeting-types\/([^/]+)/.exec(page.url())![1],
+      start: slot.start,
+      name: "Повтор",
+      email: "duplicate@example.com",
+    },
+  });
+  expect(duplicate.status()).toBe(409);
   await page.getByRole("link", { name: "Для владельца" }).click();
   const meetings = page.getByRole("region", { name: "Предстоящие встречи" });
   await expect(meetings.getByRole("heading", { name: "Проверка полного пути" })).toBeVisible();

@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -77,7 +80,32 @@ func newRouterWithServer(s *server, middleware ...gin.HandlerFunc) *gin.Engine {
 func main() {
 	gin.SetMode(gin.ReleaseMode)
 	router := newRouter()
+	if directory := os.Getenv("STATIC_DIR"); directory != "" {
+		router.NoRoute(func(c *gin.Context) {
+			if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead {
+				c.Status(http.StatusNotFound)
+				return
+			}
+			path := c.Request.URL.Path
+			if path == "/api" || strings.HasPrefix(path, "/api/") {
+				c.Status(http.StatusNotFound)
+				return
+			}
+			if path == "/" || path == "/owner" || strings.HasPrefix(path, "/meeting-types/") {
+				c.File(filepath.Join(directory, "index.html"))
+				return
+			}
+			http.FileServer(http.Dir(directory)).ServeHTTP(c.Writer, c.Request)
+		})
+	}
 	address := os.Getenv("APP_ADDR")
+	if port := os.Getenv("PORT"); port != "" {
+		number, err := strconv.Atoi(port)
+		if err != nil || number < 1 || number > 65535 {
+			log.Fatal("PORT must be an integer between 1 and 65535")
+		}
+		address = net.JoinHostPort("", port)
+	}
 	if address == "" {
 		address = "127.0.0.1:8080"
 	}
