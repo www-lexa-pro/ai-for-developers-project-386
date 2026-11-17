@@ -268,6 +268,9 @@ type CreateMeetingTypeJSONRequestBody = CreateMeetingTypeInput
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
+	// (GET /api/bookings)
+	ListBookings(c *gin.Context)
+
 	// (POST /api/bookings)
 	CreateBooking(c *gin.Context)
 
@@ -295,6 +298,19 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// ListBookings operation middleware
+func (siw *ServerInterfaceWrapper) ListBookings(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListBookings(c)
+}
 
 // CreateBooking operation middleware
 func (siw *ServerInterfaceWrapper) CreateBooking(c *gin.Context) {
@@ -425,12 +441,34 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
+	router.GET(options.BaseURL+"/api/bookings", wrapper.ListBookings)
 	router.POST(options.BaseURL+"/api/bookings", wrapper.CreateBooking)
 	router.GET(options.BaseURL+"/api/health", wrapper.GetHealth)
 	router.GET(options.BaseURL+"/api/meeting-types", wrapper.ListMeetingTypes)
 	router.POST(options.BaseURL+"/api/meeting-types", wrapper.CreateMeetingType)
 	router.GET(options.BaseURL+"/api/meeting-types/:id", wrapper.GetMeetingType)
 	router.GET(options.BaseURL+"/api/meeting-types/:id/availability", wrapper.GetAvailability)
+}
+
+type ListBookingsRequestObject struct {
+}
+
+type ListBookingsResponseObject interface {
+	VisitListBookingsResponse(w http.ResponseWriter) error
+}
+
+type ListBookings200JSONResponse []Booking
+
+func (response ListBookings200JSONResponse) VisitListBookingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type CreateBookingRequestObject struct {
@@ -692,6 +730,9 @@ func (response GetAvailability404JSONResponse) VisitGetAvailabilityResponse(w ht
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 
+	// (GET /api/bookings)
+	ListBookings(ctx context.Context, request ListBookingsRequestObject) (ListBookingsResponseObject, error)
+
 	// (POST /api/bookings)
 	CreateBooking(ctx context.Context, request CreateBookingRequestObject) (CreateBookingResponseObject, error)
 
@@ -766,6 +807,30 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictGinServerOptions
+}
+
+// ListBookings operation middleware
+func (sh *strictHandler) ListBookings(ctx *gin.Context) {
+	var request ListBookingsRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListBookings(ctx, request.(ListBookingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListBookings")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListBookingsResponseObject); ok {
+		if err := validResponse.VisitListBookingsResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // CreateBooking operation middleware

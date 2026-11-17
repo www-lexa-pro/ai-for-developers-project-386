@@ -41,10 +41,10 @@ run = "mise daemons logs"
 run = "mise daemons stop"
 
 [tasks.lint]
-run = ["npm exec oxlint -- --deny-warnings frontend/src/main.tsx frontend/src/App.tsx frontend/src/OwnerPage.tsx frontend/src/AvailabilityPicker.tsx frontend/src/BookingPage.tsx frontend/tests vitest.config.ts vite.config.ts openapi-ts.config.ts", "npm exec oxfmt -- --check frontend/src/main.tsx frontend/src/App.tsx frontend/src/OwnerPage.tsx frontend/src/AvailabilityPicker.tsx frontend/src/BookingPage.tsx frontend/tests vitest.config.ts vite.config.ts openapi-ts.config.ts commitlint.config.js", "cd backend && golangci-lint run && golangci-lint fmt --diff", "jactionlint .github/workflows/check.yml .github/workflows/release-please.yml"]
+run = ["npm exec oxlint -- --deny-warnings frontend/src/main.tsx frontend/src/App.tsx frontend/src/OwnerPage.tsx frontend/src/OwnerBookings.tsx frontend/src/AvailabilityPicker.tsx frontend/src/BookingPage.tsx frontend/tests frontend/e2e playwright.config.ts vitest.config.ts vite.config.ts openapi-ts.config.ts", "npm exec oxfmt -- --check frontend/src/main.tsx frontend/src/App.tsx frontend/src/OwnerPage.tsx frontend/src/OwnerBookings.tsx frontend/src/AvailabilityPicker.tsx frontend/src/BookingPage.tsx frontend/tests frontend/e2e playwright.config.ts vitest.config.ts vite.config.ts openapi-ts.config.ts commitlint.config.js", "cd backend && golangci-lint run && golangci-lint fmt --diff", "jactionlint .github/workflows/check.yml .github/workflows/release-please.yml"]
 
 [tasks.test]
-run = ["cd backend && go test -count=1 ./...", "npm run test:ui"]
+run = ["cd backend && go test -count=1 ./...", "npm run test:ui", "npm run test:e2e"]
 
 [tasks.build]
 run = ["cd backend && go build -o bin/calendar .", "npm exec vite -- build"]

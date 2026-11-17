@@ -169,6 +169,11 @@ func TestBookingConcurrentRequests(t *testing.T) {
 			}
 			var availability api.Availability
 			getJSON(t, app.URL+"/api/meeting-types/"+id+"/availability", 200, &availability)
+			var saved []api.Booking
+			getJSON(t, app.URL+"/api/bookings", 200, &saved)
+			if len(saved) != want {
+				t.Fatalf("owner list: %d bookings for %d successful requests", len(saved), want)
+			}
 			if len(availability.Days[0].Slots) != 18-want {
 				t.Fatalf("saved reservations disagree: %d free, %d successes", len(availability.Days[0].Slots), successes)
 			}
@@ -245,9 +250,31 @@ func TestBookingRestartAndInvalidJSON(t *testing.T) {
 	if status != 201 {
 		t.Fatal(status)
 	}
+	r, err := http.Post(app.URL+"/api/meeting-types", "application/json", strings.NewReader(`{"name":"Дополнительный","durationMinutes":45}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var additional api.MeetingType
+	_ = json.NewDecoder(r.Body).Decode(&additional)
+	_ = r.Body.Close()
+	if r.StatusCode != 201 {
+		t.Fatal(r.StatusCode)
+	}
 	restarted := bookingApp(clock)
 	defer restarted.Close()
 	newID := bookingType(t, restarted)
+	var resetTypes []api.MeetingType
+	getJSON(t, restarted.URL+"/api/meeting-types", 200, &resetTypes)
+	if len(resetTypes) != 3 {
+		t.Fatalf("additional type survived: %+v", resetTypes)
+	}
+	var missing map[string]any
+	getJSON(t, restarted.URL+"/api/meeting-types/"+additional.Id, 404, &missing)
+	var resetBookings []api.Booking
+	getJSON(t, restarted.URL+"/api/bookings", 200, &resetBookings)
+	if resetBookings == nil || len(resetBookings) != 0 {
+		t.Fatalf("bookings survived: %+v", resetBookings)
+	}
 	var availability api.Availability
 	getJSON(t, restarted.URL+"/api/meeting-types/"+newID+"/availability", 200, &availability)
 	if len(availability.Days[0].Slots) != 18 {
@@ -344,5 +371,47 @@ func TestBookingMoscowWindowBoundary(t *testing.T) {
 		if status != tc.status {
 			t.Fatalf("Moscow window %s: %d %+v", tc.date, status, body)
 		}
+	}
+}
+
+func TestOwnerBookingsAreFutureSortedAcrossTypes(t *testing.T) {
+	var current atomic.Int64
+	current.Store(time.Date(2026, 11, 15, 12, 0, 0, 0, time.UTC).Unix())
+	app := bookingApp(func() time.Time { return time.Unix(current.Load(), 0) })
+	defer app.Close()
+	var empty []api.Booking
+	getJSON(t, app.URL+"/api/bookings", 200, &empty)
+	if empty == nil || len(empty) != 0 {
+		t.Fatalf("empty list: %+v", empty)
+	}
+	var types []api.MeetingType
+	getJSON(t, app.URL+"/api/meeting-types", 200, &types)
+	for i, start := range []string{"2026-11-27T09:00:00+03:00", "2026-11-16T10:00:00+03:00", "2026-11-16T09:00:00+03:00"} {
+		status, body := bookingPost(t, app, map[string]any{"meetingTypeId": types[i].Id, "start": start, "name": "Гость", "email": "a@example.com"})
+		if status != 201 {
+			t.Fatalf("create: %d %+v", status, body)
+		}
+	}
+	var bookings []api.Booking
+	getJSON(t, app.URL+"/api/bookings", 200, &bookings)
+	if len(bookings) != 3 || bookings[0].MeetingTypeId != types[2].Id || bookings[1].MeetingTypeId != types[1].Id || bookings[2].MeetingTypeId != types[0].Id || bookings[0].Name != "Гость" || bookings[0].Email != "a@example.com" {
+		t.Fatalf("ordered confirmations: %+v", bookings)
+	}
+	current.Store(time.Date(2026, 11, 16, 9, 0, 0, 0, moscow).Unix())
+	getJSON(t, app.URL+"/api/bookings", 200, &bookings)
+	if len(bookings) != 2 || bookings[0].Start.Hour() != 10 {
+		t.Fatalf("exact start must be excluded: %+v", bookings)
+	}
+	// The owner sees all future reservations even when the clock moves so a saved
+	// reservation is now outside the guest's current fourteen-date window.
+	current.Store(time.Date(2026, 10, 1, 0, 0, 0, 0, moscow).Unix())
+	getJSON(t, app.URL+"/api/bookings", 200, &bookings)
+	if len(bookings) != 3 {
+		t.Fatalf("owner list was restricted by booking window: %+v", bookings)
+	}
+	current.Store(time.Date(2026, 11, 28, 0, 0, 0, 0, moscow).Unix())
+	getJSON(t, app.URL+"/api/bookings", 200, &bookings)
+	if bookings == nil || len(bookings) != 0 {
+		t.Fatalf("past bookings: %+v", bookings)
 	}
 }

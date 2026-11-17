@@ -147,3 +147,8 @@ op createBooking(@body input: CreateBookingInput): {
   @statusCode statusCode: 500;
   @body body: InternalError;
 };
+
+@route("/api/bookings")
+@get
+@operationId("listBookings")
+op listBookings(): Booking[];

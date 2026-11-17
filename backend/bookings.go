@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -71,4 +72,18 @@ func (s *server) CreateBooking(_ context.Context, request api.CreateBookingReque
 		return api.CreateBooking201JSONResponse(confirmation), nil
 	}
 	return api.CreateBooking404JSONResponse{Code: api.MeetingTypeNotFoundCodeMeetingTypeNotFound, Message: "Этот тип встречи больше недоступен"}, nil
+}
+
+func (s *server) ListBookings(_ context.Context, _ api.ListBookingsRequestObject) (api.ListBookingsResponseObject, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := s.now()
+	result := api.ListBookings200JSONResponse{}
+	for _, booking := range s.bookings {
+		if booking.start.After(now) {
+			result = append(result, booking.confirmation)
+		}
+	}
+	sort.SliceStable(result, func(i, j int) bool { return result[i].Start.Before(result[j].Start) })
+	return result, nil
 }

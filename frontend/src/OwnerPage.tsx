@@ -2,6 +2,7 @@ import { Button, Group, Stack, Text, Textarea, TextInput, Title } from "@mantine
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { createMeetingType, listMeetingTypes } from "./api/sdk.gen";
+import { OwnerBookings } from "./OwnerBookings";
 import type { MeetingType } from "./api/types.gen";
 
 type Fields = Record<string, string>;
@@ -24,7 +25,8 @@ function isMeetingType(value: unknown): value is MeetingType {
 
 export function OwnerPage() {
   const [types, setTypes] = useState<MeetingType[]>([]);
-  const [created, setCreated] = useState<MeetingType[]>([]);
+  const [created, setCreated] = useState<{ type: MeetingType; version: number }[]>([]);
+  const creationVersion = useRef(0);
   const [listState, setListState] = useState<"loading" | "ready" | "error">("loading");
   const [attempt, setAttempt] = useState(0);
   const [name, setName] = useState("");
@@ -38,6 +40,7 @@ export function OwnerPage() {
 
   useEffect(() => {
     let active = true;
+    const startedAtVersion = creationVersion.current;
     setListState("loading");
     async function load() {
       try {
@@ -45,6 +48,7 @@ export function OwnerPage() {
         if (!active) return;
         if (result.data && Array.isArray(result.data) && result.data.every(isMeetingType)) {
           setTypes(result.data);
+          setCreated((previous) => previous.filter((item) => item.version > startedAtVersion));
           setListState("ready");
         } else setListState("error");
       } catch {
@@ -85,7 +89,11 @@ export function OwnerPage() {
         },
       });
       if (result.response?.status === 201 && isMeetingType(result.data)) {
-        setCreated((previous) => [...previous, result.data!]);
+        creationVersion.current += 1;
+        setCreated((previous) => [
+          ...previous,
+          { type: result.data!, version: creationVersion.current },
+        ]);
         setName("");
         setDescription("");
         setDuration("");
@@ -117,12 +125,15 @@ export function OwnerPage() {
   }
   const visibleTypes = [
     ...types,
-    ...created.filter((type) => !types.some((item) => item.id === type.id)),
+    ...created
+      .map((item) => item.type)
+      .filter((type) => !types.some((item) => item.id === type.id)),
   ];
   return (
     <Stack gap="xl">
       <Title order={1}>Для владельца</Title>
       <Text>Страница доступна без входа любому, кто знает адрес.</Text>
+      <OwnerBookings />
       <section aria-label="Типы встреч владельца">
         <Title order={2}>Типы встреч</Title>
         {listState === "loading" && <Text role="status">Загрузка типов встреч…</Text>}

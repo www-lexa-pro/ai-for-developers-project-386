@@ -60,7 +60,7 @@ test("ошибка списка не мешает форме; неизвестн
 });
 
 test("все ошибки полей показаны вместе и ввод сохранён без запроса создания", async () => {
-  const fetch = vi.fn(async () => response([]));
+  const fetch = vi.fn(async (_request: Request) => response([]));
   vi.stubGlobal("fetch", fetch);
   render(<App />);
   await screen.findByText("Нет типов встреч");
@@ -74,7 +74,10 @@ test("все ошибки полей показаны вместе и ввод �
   expect(screen.getByText("Описание должно содержать не больше 1000 символов")).toBeTruthy();
   expect(screen.getByText("Введите целое число от 1 до 540")).toBeTruthy();
   expect((screen.getByLabelText("Название") as HTMLInputElement).value).toBe(" ");
-  expect(fetch.mock.calls.length).toBe(1);
+  expect(
+    fetch.mock.calls.filter(([request]) => (request as unknown as Request).method === "POST")
+      .length,
+  ).toBe(0);
 });
 
 test("форма заблокирована до ответа, серверные ошибки сохраняют поля", async () => {
@@ -207,4 +210,44 @@ test("неполная ошибка 422 считается неизвестны�
   await fill();
   await userEvent.click(screen.getByRole("button", { name: "Создать тип" }));
   expect(await screen.findByText(/Тип мог быть создан/)).toBeTruthy();
+});
+
+test("свежий список заменяет созданные до запроса типы после сброса сервера", async () => {
+  let posts = 0;
+  vi.stubGlobal("fetch", async (request: Request) => {
+    if (request.method === "POST") {
+      posts++;
+      return posts === 1 ? response(created, 201) : response({}, 500);
+    }
+    return response([]);
+  });
+  render(<App />);
+  await screen.findByText("Нет типов встреч");
+  await fill();
+  await userEvent.click(screen.getByRole("button", { name: "Создать тип" }));
+  await screen.findByRole("heading", { name: "Разбор" });
+  await fill();
+  await userEvent.click(screen.getByRole("button", { name: "Создать тип" }));
+  await screen.findByText(/Тип мог быть создан/);
+  await userEvent.click(screen.getByRole("button", { name: "Проверить список типов" }));
+  await screen.findByText("Нет типов встреч");
+  expect(screen.queryByRole("heading", { name: "Разбор" })).toBeNull();
+});
+
+test("запоздавший список сохраняет тип, созданный после начала чтения", async () => {
+  let finish!: (value: Response) => void;
+  vi.stubGlobal("fetch", (request: Request) => {
+    if (request.method === "POST") return Promise.resolve(response(created, 201));
+    if (request.url.endsWith("/api/bookings")) return Promise.resolve(response([]));
+    return new Promise<Response>((resolve) => {
+      finish = resolve;
+    });
+  });
+  render(<App />);
+  await fill();
+  await userEvent.click(screen.getByRole("button", { name: "Создать тип" }));
+  await screen.findByRole("heading", { name: "Разбор" });
+  finish(response([]));
+  await waitFor(() => expect(screen.queryByText("Загрузка типов встреч…")).toBeNull());
+  expect(screen.getByRole("heading", { name: "Разбор" })).toBeTruthy();
 });
