@@ -126,3 +126,13 @@ test("плановое, ручное и обновление при возвра
     finish(response([booking]));
   });
 });
+
+test("неверная длительность встречи показывает ошибку чтения вместо записи", async () => {
+  vi.stubGlobal("fetch", async (request: Request) =>
+    response(request.url.endsWith("/api/bookings") ? [{ ...booking, durationMinutes: 541 }] : []),
+  );
+  render(<App />);
+  expect(await screen.findByText("Не удалось загрузить встречи")).toBeTruthy();
+  expect(screen.queryByText("541 мин")).toBeNull();
+  expect(screen.queryByText("Алексей")).toBeNull();
+});

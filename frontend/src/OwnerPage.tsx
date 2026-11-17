@@ -104,8 +104,14 @@ export function OwnerPage() {
         result.error?.code === "validation_error" &&
         result.error.fields &&
         typeof result.error.fields === "object" &&
+        !Array.isArray(result.error.fields) &&
         Object.keys(result.error.fields).length > 0 &&
-        Object.values(result.error.fields).every((value) => typeof value === "string")
+        Object.entries(result.error.fields).every(
+          ([key, value]) =>
+            ["name", "description", "durationMinutes"].includes(key) &&
+            typeof value === "string" &&
+            value.length > 0,
+        )
       ) {
         setFields(result.error.fields);
         setNotice("Проверьте поля формы");

@@ -1,5 +1,6 @@
 import { Button, Text, Title } from "@mantine/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isBooking } from "./booking";
 import { listBookings } from "./api/sdk.gen";
 import type { Booking } from "./api/types.gen";
 
@@ -9,21 +10,6 @@ const time = new Intl.DateTimeFormat("ru-RU", {
   hour: "2-digit",
   minute: "2-digit",
 });
-function isBooking(value: unknown): value is Booking {
-  if (!value || typeof value !== "object") return false;
-  const item = value as Booking;
-  return (
-    [item.id, item.meetingTypeId, item.meetingTypeName, item.name, item.email].every(
-      (value) => typeof value === "string" && value.length > 0,
-    ) &&
-    Number.isInteger(item.durationMinutes) &&
-    item.durationMinutes > 0 &&
-    typeof item.start === "string" &&
-    Number.isFinite(Date.parse(item.start)) &&
-    typeof item.end === "string" &&
-    Number.isFinite(Date.parse(item.end))
-  );
-}
 export function OwnerBookings() {
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [loading, setLoading] = useState(true);

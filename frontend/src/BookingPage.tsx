@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Button, Stack, Text, TextInput, Title } from "@mantine/core";
 import { AvailabilityPicker } from "./AvailabilityPicker";
+import { isBooking } from "./booking";
 import { createBooking } from "./api/sdk.gen";
 import type { AvailableSlot, Booking } from "./api/types.gen";
 
@@ -27,22 +28,6 @@ const timeFormat = new Intl.DateTimeFormat("ru-RU", {
   minute: "2-digit",
   timeZone: "Europe/Moscow",
 });
-function isBooking(value: unknown): value is Booking {
-  if (!value || typeof value !== "object") return false;
-  const item = value as Booking;
-  return (
-    [item.id, item.meetingTypeId, item.meetingTypeName, item.name, item.email].every(
-      (value) => typeof value === "string" && value.length > 0,
-    ) &&
-    Number.isInteger(item.durationMinutes) &&
-    item.durationMinutes >= 1 &&
-    item.durationMinutes <= 540 &&
-    typeof item.start === "string" &&
-    typeof item.end === "string" &&
-    Number.isFinite(Date.parse(item.start)) &&
-    Number.isFinite(Date.parse(item.end))
-  );
-}
 export function BookingPage({
   meetingTypeId,
   guest,

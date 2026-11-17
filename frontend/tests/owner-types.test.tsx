@@ -251,3 +251,28 @@ test("запоздавший список сохраняет тип, созда�
   await waitFor(() => expect(screen.queryByText("Загрузка типов встреч…")).toBeNull());
   expect(screen.getByRole("heading", { name: "Разбор" })).toBeTruthy();
 });
+
+test.each([{ unexpected: "Ошибка" }, { name: "" }, ["Ошибка"]])(
+  "непонятные ошибки полей %j сохраняют ввод и требуют проверки результата",
+  async (fields) => {
+    let posts = 0;
+    vi.stubGlobal("fetch", async (request: Request) => {
+      if (request.method === "POST") {
+        posts++;
+        return response({ code: "validation_error", fields }, 422);
+      }
+      return response([]);
+    });
+    render(<App />);
+    await fill();
+    await userEvent.click(screen.getByRole("button", { name: "Создать тип" }));
+    expect(await screen.findByText(/Тип мог быть создан/)).toBeTruthy();
+    expect((screen.getByLabelText("Название") as HTMLInputElement).value).toBe("Разбор");
+    expect((screen.getByLabelText("Описание") as HTMLTextAreaElement).value).toBe("Описание");
+    expect((screen.getByLabelText("Длительность, минут") as HTMLInputElement).value).toBe("45");
+    await userEvent.click(screen.getByRole("button", { name: "Проверить список типов" }));
+    await screen.findByText("Нет типов встреч");
+    expect(screen.getByText(/Тип мог быть создан/)).toBeTruthy();
+    expect(posts).toBe(1);
+  },
+);
