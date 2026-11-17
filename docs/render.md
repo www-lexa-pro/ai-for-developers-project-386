@@ -62,3 +62,36 @@ PORT предоставляет Render, STATIC_DIR уже задан в обра
 - https://render.com/docs/free
 - https://render.com/docs/blueprint-spec
 - https://ru.hexlet.io/blog/posts/kak-deploit-prilozhenie-na-render-gayd-dlya-frontenderov-i-bekenderov
+
+## Результат первого деплоя — 17.11.2026
+
+- Приложение: https://cal-hexlet.onrender.com
+- Сервис: cal-hexlet, srv-dbu605e8bjmc73ae7ht0.
+- Деплой: dep-dbu60668bjmc73ae7jcg, статус Live; исходный коммит
+  914301f43fc6b6287d1e3a0fb338d79be4063831.
+- Free, Frankfurt, auto-deploy Off. Карта и оплата не запрашивались.
+- OAuth Codex завершён успешно; инструменты Render в исходном диалоге
+  не появились, list_workspaces/list_services ещё не проверены. Деплой
+  выполнен через Dashboard в Chrome Алексея.
+- mise run check и все три GitHub workflow на 914301f прошли.
+- Docker проверен с портом 8080 по умолчанию, явными PORT=8080 и PORT=9090.
+  Расширенный сценарий с перезагрузкой прямых ссылок и конфликтом записи
+  проверен в контейнере с явным PORT=8080.
+- На публичном Render полный браузерный сценарий прошёл за 5,8 секунды:
+  создание типа, прямые ссылки после перезагрузки, запись, подтверждение,
+  просмотр владельцем, отказ повторной записи (409).
+
+Обычный HTTPS-запрос с NAS зависал при TLS handshake, Chrome Windows
+возвращал ERR_CONNECTION_RESET. Это не исправлялось изменением приложения.
+Проверка с TLS 1.2 и HTTP/1.1 вернула health 200:
+
+```bash
+curl --fail --tls-max 1.2 --http1.1 https://cal-hexlet.onrender.com/api/health
+```
+
+Отдельный Chromium с параметрами --ssl-version-max=tls1.2 и --disable-http2
+успешно прошёл полный сценарий. Это подтверждает работу сервиса, но
+не подтверждает доступность в Chrome Алексея без этих параметров.
+Причина различия сетевых режимов не установлена; настройки общего Chrome
+не менялись. Временные конфигурация и результаты проверки находятся вне Git:
+ /mnt/projects/tmp/cal/render-20261117/.
