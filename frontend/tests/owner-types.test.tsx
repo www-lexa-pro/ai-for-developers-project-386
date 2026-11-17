@@ -93,6 +93,10 @@ test("форма заблокирована до ответа, серверны�
   await fill();
   await userEvent.click(screen.getByRole("button", { name: "Создать тип" }));
   await waitFor(() => expect(finish).toBeTypeOf("function"));
+  expect(screen.getByText("Создаём тип встречи…")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Создать тип" }).getAttribute("aria-busy")).toBe(
+    "true",
+  );
   for (const label of ["Название", "Описание", "Длительность, минут"])
     expect((screen.getByLabelText(label) as HTMLInputElement).disabled).toBe(true);
   expect((screen.getByRole("button", { name: "Создать тип" }) as HTMLButtonElement).disabled).toBe(
@@ -117,6 +121,7 @@ test("форма заблокирована до ответа, серверны�
   expect(screen.getByText("Ошибка длительности")).toBeTruthy();
   expect((screen.getByLabelText("Название") as HTMLInputElement).value).toBe("Разбор");
   expect((screen.getByLabelText("Название") as HTMLInputElement).disabled).toBe(false);
+  expect(screen.queryByText("Создаём тип встречи…")).toBeNull();
 });
 
 test.each([500, 201])(

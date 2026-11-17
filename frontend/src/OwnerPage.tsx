@@ -187,10 +187,11 @@ export function OwnerPage() {
               disabled={sending}
             />
             <Group>
-              <Button type="submit" disabled={sending}>
+              <Button type="submit" disabled={sending} loading={sending} aria-busy={sending}>
                 Создать тип
               </Button>
             </Group>
+            {sending && <Text role="status">Создаём тип встречи…</Text>}
           </Stack>
         </form>
         {notice && <Text role="status">{notice}</Text>}

@@ -99,3 +99,33 @@ func TestCreateMeetingTypeValidationAndBounds(t *testing.T) {
 		t.Fatalf("duplicate names and order: %+v", types)
 	}
 }
+
+func TestCreateMeetingTypeRejectsNullFields(t *testing.T) {
+	app := httptest.NewServer(newRouter())
+	defer app.Close()
+	for _, example := range []struct{ field, body string }{
+		{"name", `{"name":null,"durationMinutes":15}`},
+		{"durationMinutes", `{"name":"Тест","durationMinutes":null}`},
+		{"description", `{"name":"Тест","description":null,"durationMinutes":15}`},
+	} {
+		t.Run(example.field, func(t *testing.T) {
+			response, err := http.Post(app.URL+"/api/meeting-types", "application/json", strings.NewReader(example.body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = response.Body.Close() }()
+			var failure map[string]any
+			if err := json.NewDecoder(response.Body).Decode(&failure); err != nil {
+				t.Fatal(err)
+			}
+			if response.StatusCode != http.StatusBadRequest || failure["code"] != "invalid_request" {
+				t.Fatalf("null %s: %d %+v, want 400 invalid_request", example.field, response.StatusCode, failure)
+			}
+		})
+	}
+	var types []map[string]any
+	getJSON(t, app.URL+"/api/meeting-types", http.StatusOK, &types)
+	if len(types) != 3 {
+		t.Fatalf("null input created a type: %+v", types)
+	}
+}

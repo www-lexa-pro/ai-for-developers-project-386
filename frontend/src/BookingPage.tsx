@@ -195,9 +195,15 @@ export function BookingPage({
             disabled={sending}
             onChange={(event) => onGuestChange({ ...guest, email: event.currentTarget.value })}
           />
-          <Button type="submit" disabled={sending || missing || !selection || needsRefresh}>
+          <Button
+            type="submit"
+            disabled={sending || missing || !selection || needsRefresh}
+            loading={sending}
+            aria-busy={sending}
+          >
             Записаться
           </Button>
+          {sending && <Text role="status">Отправляем запись…</Text>}
         </Stack>
       </form>
     </>

@@ -214,6 +214,8 @@ test("отправка блокирует поля, даты, обновлени
   await userEvent.click(screen.getByRole("button", { name: "Записаться" }));
   expect(screen.getByLabelText("Имя")).toHaveProperty("disabled", true);
   expect(screen.getByLabelText("Email")).toHaveProperty("disabled", true);
+  expect(screen.getByText("Отправляем запись…")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Записаться" }).getAttribute("aria-busy")).toBe("true");
   for (const name of [/17 ноября/, "09:00–09:15", "Обновить календарь", "Записаться"])
     expect(screen.getByRole("button", { name })).toHaveProperty("disabled", true);
   await userEvent.click(screen.getByRole("link", { name: "Вернуться к типам встреч" }));
@@ -231,6 +233,7 @@ test("отправка блокирует поля, даты, обновлени
     ),
   );
   await screen.findByText("Ошибка email");
+  expect(screen.queryByText("Отправляем запись…")).toBeNull();
 });
 
 test("имя и email переживают возврат к каталогу и смену типа, но перезагрузка очищает ввод", async () => {
