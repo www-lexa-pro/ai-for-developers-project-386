@@ -7,8 +7,8 @@ GitHub Release. Сборка, развёртывание, npm publish и Docker 
 
 ## Начальная версия и история
 
-Корневой пакет использует стратегию `simple`. Пустой manifest означает, что
-опубликованных версий ещё нет; `version.txt` содержит исходное `0.0.0`.
+Корневой пакет использует стратегию `simple`. При первоначальной настройке
+manifest был пустым, а `version.txt` содержал исходное `0.0.0`.
 `initial-version: 0.1.0` задаёт первую предлагаемую версию, а не принудительную
 версию каждого следующего выпуска. После первого выпуска версия вычисляется
 по Conventional Commits: `feat` повышает minor, `fix` — patch,
@@ -26,8 +26,9 @@ GitHub Release. Сборка, развёртывание, npm publish и Docker 
 **Allow GitHub Actions to create and approve pull requests**. Политика
 организации может запрещать эту настройку — тогда её меняет владелец организации.
 Проверка API 16.11.2026 показала `can_approve_pull_request_reviews: false`:
-создание PR ещё требует этого действия владельца. Настройки в этой задаче
-не изменялись.
+создание PR тогда требовало этого действия владельца. 17 ноября по прямому
+поручению Алексея настройка включена: API подтвердил
+`can_approve_pull_request_reviews: true`; разрешение по умолчанию осталось `read`.
 
 Workflow запрашивает `contents: write` для ветки/тега/Release и
 `pull-requests: write` для release PR и `issues: write` для служебных меток
@@ -88,11 +89,32 @@ PR версии `0.1.0` с пятью функциями #6–#10 и испра�
 (вне Git). Для запуска токен передавался через анонимный канал и не сохранялся
 в файл или аргументы процесса.
 
-Настоящий release PR не создан и не принят, тег и Release не выпускались.
-Расчёт выполнен для интеграционной ветки, а workflow предназначен для `main`.
-Полный цикл остаётся непроверенным до шагов владельца выше; #11 остаётся открытой.
-Успешный `mise run check` проверяет приложение и синтаксис собственного workflow;
-он не подменяет эту проверку на GitHub.
+## Подтверждённый первый выпуск — 17 ноября 2026 года
+
+После успешных проверок исправлений интеграционная ветка включена в `main`
+коммитом `8e8997e`. [Первый запуск workflow](https://github.com/www-lexa-pro/ai-for-developers-project-386/actions/runs/44088237844)
+успешно создал [release PR #12](https://github.com/www-lexa-pro/ai-for-developers-project-386/pull/12).
+Проверены только три ожидаемых файла: `CHANGELOG.md`, `version.txt` и manifest;
+версия во всех них — `0.1.0`.
+
+Точная вершина PR `063e03c6b5ff89311298b4e8ad591d940ed7efc3` прошла полный
+`mise run check` (Go, 55 UI-тестов, настоящий Chromium E2E, линтеры, типы,
+сборки, актуальность генерации), `node scripts/check-commits.mjs` и сверку
+версии. PR принят с squash-коммитом
+`fe3288c7e8ae2720d10461fe72cf45cc082acf46`; дерево файлов совпадает
+с проверенной вершиной PR.
+
+[Следующий запуск выпуска](https://github.com/www-lexa-pro/ai-for-developers-project-386/actions/runs/44088754443)
+завершился успешно и создал тег `v0.1.0` и
+[GitHub Release](https://github.com/www-lexa-pro/ai-for-developers-project-386/releases/tag/v0.1.0)
+в 13:02:24 UTC. Релиз опубликован, не является draft или prerelease. Тег
+получен через Git и разрешается в тот же коммит `fe3288c`; `version.txt`
+и manifest внутри тега содержат `0.1.0`.
+
+Для release-коммита также прошли
+[проверки приложения](https://github.com/www-lexa-pro/ai-for-developers-project-386/actions/runs/44088754605)
+и [Хекслет](https://github.com/www-lexa-pro/ai-for-developers-project-386/actions/runs/44088754527).
+Полный цикл #11 подтверждён фактическим выпуском, а не только dry-run.
 
 Источники: [action и ограничения токена](https://github.com/googleapis/release-please-action),
 [manifest и начальная история](https://github.com/googleapis/release-please/blob/main/docs/manifest-releaser.md),
