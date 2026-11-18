@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/www-lexa-pro/ai-for-developers-project-386/compare/v0.1.0...v0.2.0) (2026-11-18)
+
+
+### Features
+
+* подготовить Docker и бесплатный деплой на Render ([914301f](https://github.com/www-lexa-pro/ai-for-developers-project-386/commit/914301f43fc6b6287d1e3a0fb338d79be4063831)), closes [#13](https://github.com/www-lexa-pro/ai-for-developers-project-386/issues/13)
+
+
+### Bug Fixes
+
+* ограничить Render MCP конфигурацией проекта ([12cddde](https://github.com/www-lexa-pro/ai-for-developers-project-386/commit/12cddde9ba9563bc4e3b7254549d82f70a94fe11)), closes [#13](https://github.com/www-lexa-pro/ai-for-developers-project-386/issues/13)
+
 ## 0.1.0 (2026-11-17)
 
 
