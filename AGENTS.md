@@ -8,7 +8,11 @@
 
 ## Каркас
 
-- Команды установки, запуска, сборки и проверок: README.md. Основная проверка — `mise run check`.
+- Запуск приложения — `mise run dev`.
+- Тесты — `mise run test`.
+- Линтеры и проверка форматирования — `mise run lint`.
+- Полная проверка локально и в CI — `mise run check`.
+- Установка, сборка и остальные команды описаны в [README.md](README.md).
 - `backend/` — Go/Gin; `frontend/` — React/Mantine; `api/main.tsp` — источник API.
 - Не редактировать вручную `api/generated/`, `frontend/src/api/` и `backend/internal/api/generated.go`: использовать `mise run generate`.
 - Не менять служебный workflow Хекслета. Собственные проверки — `.github/workflows/check.yml`.
